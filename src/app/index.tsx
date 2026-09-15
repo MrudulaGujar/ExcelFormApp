@@ -9,33 +9,46 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Linking,
 } from "react-native";
 import axios from "axios";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 
 export default function HomeScreen() {
-  const [name, setName] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
-  const [department, setDepartment] = useState("");
+  const [candidateName, setCandidateName] = useState("");
+  const [candidateNumber, setCandidateNumber] = useState("");
+  const [mobileNo, setMobileNo] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
 
   // =========================
-  // SAVE EMPLOYEE DATA
+  // SAVE CANDIDATE DATA
   // =========================
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert("Validation Error", "Please enter your name.");
+    // Candidate Name validation
+    if (!candidateName.trim()) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter candidate name."
+      );
       return;
     }
 
-    if (!employeeId.trim()) {
-      Alert.alert("Validation Error", "Please enter your Employee ID.");
+    // Candidate Number validation
+    if (!candidateNumber.trim()) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter candidate number."
+      );
       return;
     }
 
-    if (!department.trim()) {
-      Alert.alert("Validation Error", "Please enter your department.");
+    // Mobile Number validation
+    if (!mobileNo.trim()) {
+      Alert.alert(
+        "Validation Error",
+        "Please enter mobile number."
+      );
       return;
     }
 
@@ -43,28 +56,29 @@ export default function HomeScreen() {
       setIsSaving(true);
 
       const response = await axios.post(
-        "http://10.227.132.72:5001/api/employees",
+        "http://10.239.211.72:5001/api/candidates",
         {
-          name: name.trim(),
-          employeeId: employeeId.trim(),
-          department: department.trim(),
+          candidateName: candidateName.trim(),
+          candidateNumber: candidateNumber.trim(),
+          mobileNo: mobileNo.trim(),
         }
       );
 
       if (response.data.success) {
         Alert.alert(
           "Success",
-          "Employee data saved successfully."
+          "Candidate data saved successfully."
         );
 
         // Clear form after successful save
-        setName("");
-        setEmployeeId("");
-        setDepartment("");
+        setCandidateName("");
+        setCandidateNumber("");
+        setMobileNo("");
       } else {
         Alert.alert(
           "Error",
-          response.data.message || "Failed to save data."
+          response.data.message ||
+            "Failed to save candidate data."
         );
       }
     } catch (error) {
@@ -79,43 +93,102 @@ export default function HomeScreen() {
     }
   };
 
-  // =========================
-  // DOWNLOAD / OPEN PDF
-  // =========================
-  const handleDownloadPDF = async () => {
-    try {
-      setIsDownloading(true);
+  const handleDownloadExcel = async () => {
+  try {
+    const response = await fetch(
+      "http://10.239.211.72:5001/api/download-excel"
+    );
 
-      const pdfUrl =
-        "http://10.227.132.72:5001/api/employees/pdf?t=${Date.now()}";
+    if (!response.ok) {
+      throw new Error("Failed to download Excel file.");
+    }
 
-      const supported = await Linking.canOpenURL(pdfUrl);
+    const blob = await response.blob();
 
-      if (supported) {
-        await Linking.openURL(pdfUrl);
-      } else {
+    const reader = new FileReader();
+
+    reader.onloadend = async () => {
+      try {
+        const base64data = reader.result?.toString().split(",")[1];
+
+        if (!base64data) {
+          throw new Error("Failed to read Excel file.");
+        }
+
+        const fileUri =
+          FileSystem.documentDirectory + "Candidate_Info.xlsx";
+
+        await FileSystem.writeAsStringAsync(
+  fileUri,
+  base64data,
+  {
+    encoding: FileSystem.EncodingType.Base64,
+  }
+);
+
+Alert.alert(
+  "Download Complete",
+  "Candidate_Info.xlsx has been downloaded successfully.",
+  [
+    {
+      text: "Open / Share",
+      onPress: async () => {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            dialogTitle: "Open Candidate Excel",
+          });
+        }
+      },
+    },
+    {
+      text: "OK",
+      style: "cancel",
+    },
+  ]
+);
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType:
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            dialogTitle: "Download Candidate Excel",
+          });
+        } else {
+          Alert.alert(
+            "Success",
+            "Excel file downloaded successfully."
+          );
+        }
+      } catch (error) {
+        console.error("File save error:", error);
+
         Alert.alert(
           "Error",
-          "Unable to open the employee PDF."
+          "Could not save the Excel file."
         );
       }
-    } catch (error) {
-      console.error("PDF error:", error);
+    };
 
-      Alert.alert(
-        "Error",
-        "Could not open the employee PDF."
-      );
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+    reader.readAsDataURL(blob);
+  } catch (error) {
+    console.error("Download error:", error);
+
+    Alert.alert(
+      "Download Error",
+      "Could not download the Excel file."
+    );
+  }
+};
 
   return (
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={
-        Platform.OS === "ios" ? "padding" : undefined
+        Platform.OS === "ios"
+          ? "padding"
+          : undefined
       }
     >
       <ScrollView
@@ -126,58 +199,59 @@ export default function HomeScreen() {
 
           {/* TITLE */}
           <Text style={styles.title}>
-            Employee Form
+            Candidate Form
           </Text>
 
           <Text style={styles.subtitle}>
-            Enter employee details below
+            Enter candidate details below
           </Text>
 
-          {/* NAME */}
+          {/* CANDIDATE NAME */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              Name
+              Candidate Name
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Enter Name"
+              placeholder="Enter Candidate Name"
               placeholderTextColor="#999999"
-              value={name}
-              onChangeText={setName}
+              value={candidateName}
+              onChangeText={setCandidateName}
               autoCapitalize="words"
             />
           </View>
 
-          {/* EMPLOYEE ID */}
+          {/* CANDIDATE NUMBER */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              Employee ID
+              Candidate Number
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Enter Employee ID"
+              placeholder="Enter Candidate Number"
               placeholderTextColor="#999999"
-              value={employeeId}
-              onChangeText={setEmployeeId}
+              value={candidateNumber}
+              onChangeText={setCandidateNumber}
               autoCapitalize="characters"
             />
           </View>
 
-          {/* DEPARTMENT */}
+          {/* MOBILE NUMBER */}
           <View style={styles.fieldContainer}>
             <Text style={styles.label}>
-              Department
+              Mobile No.
             </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Enter Department"
+              placeholder="Enter Mobile Number"
               placeholderTextColor="#999999"
-              value={department}
-              onChangeText={setDepartment}
-              autoCapitalize="words"
+              value={mobileNo}
+              onChangeText={setMobileNo}
+              keyboardType="phone-pad"
+              maxLength={10}
             />
           </View>
 
@@ -196,20 +270,12 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* DOWNLOAD PDF BUTTON */}
           <TouchableOpacity
-            style={[
-              styles.pdfButton,
-              isDownloading && styles.buttonDisabled,
-            ]}
-            onPress={handleDownloadPDF}
-            disabled={isDownloading}
-            activeOpacity={0.8}
+            style={styles.downloadButton}
+            onPress={handleDownloadExcel}
           >
-            <Text style={styles.pdfButtonText}>
-              {isDownloading
-                ? "OPENING PDF..."
-                : "DOWNLOAD PDF"}
+            <Text style={styles.downloadButtonText}>
+              Download Excel
             </Text>
           </TouchableOpacity>
 
@@ -277,7 +343,6 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
-  // SAVE BUTTON
   button: {
     height: 52,
     backgroundColor: "#2563EB",
@@ -296,21 +361,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
+  downloadButton: {
+  backgroundColor: "#2e7d32",
+  paddingVertical: 14,
+  borderRadius: 8,
+  alignItems: "center",
+  marginTop: 15,
+},
 
-  // PDF BUTTON
-  pdfButton: {
-    height: 52,
-    backgroundColor: "#16A34A",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 15,
-  },
-
-  pdfButtonText: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
+downloadButtonText: {
+  color: "#fff",
+  fontSize: 16,
+  fontWeight: "600",
+},
 });
 

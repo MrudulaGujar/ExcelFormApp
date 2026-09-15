@@ -7,7 +7,9 @@ const auth = new google.auth.GoogleAuth({
     __dirname,
     "../credentials/google-service-account.json"
   ),
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  scopes: [
+    "https://www.googleapis.com/auth/spreadsheets",
+  ],
 });
 
 const sheets = google.sheets({
@@ -15,19 +17,63 @@ const sheets = google.sheets({
   auth,
 });
 
-const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID;
+const SPREADSHEET_ID =
+  process.env.GOOGLE_SPREADSHEET_ID;
+
+const SHEET_NAME = "Candidate Info";
+
+
+// ============================================================
+// GET CANDIDATES
+// ============================================================
 
 async function getSheetData() {
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: "Sheet1!A1:Z20",
-  });
+  const response =
+    await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAME}!A:C`,
+    });
 
   return response.data.values || [];
 }
+
+
+// ============================================================
+// ADD CANDIDATE
+// ============================================================
+
+async function addCandidate(candidate) {
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+
+    range: `${SHEET_NAME}!A:C`,
+
+    valueInputOption: "USER_ENTERED",
+
+    insertDataOption: "INSERT_ROWS",
+
+    requestBody: {
+      values: [
+        [
+          candidate.candidateName,
+          candidate.candidateNumber,
+          candidate.mobileNo,
+        ],
+      ],
+    },
+  });
+
+  return {
+    candidateName: candidate.candidateName,
+    candidateNumber: candidate.candidateNumber,
+    mobileNo: candidate.mobileNo,
+  };
+}
+
 
 module.exports = {
   sheets,
   SPREADSHEET_ID,
   getSheetData,
+  addCandidate,
 };

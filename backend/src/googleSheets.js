@@ -2,14 +2,21 @@ const { google } = require("googleapis");
 const path = require("path");
 require("dotenv").config();
 
+
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+
+// const auth = new google.auth.GoogleAuth({
+//   keyFile: path.join(
+//     __dirname,
+//     "../credentials/google-service-account.json"
+//   ),
+//   scopes: [
+//     "https://www.googleapis.com/auth/spreadsheets",
+//   ],
+// });
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(
-    __dirname,
-    "../credentials/google-service-account.json"
-  ),
-  scopes: [
-    "https://www.googleapis.com/auth/spreadsheets",
-  ],
+  credentials,
+  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
 const sheets = google.sheets({
